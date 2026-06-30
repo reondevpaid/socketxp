@@ -1,17 +1,27 @@
 #!/usr/bin/env bash
+# =====================================================
+# REON DEV - SocketXP Manager
+# Version: 1.0.0
+# =====================================================
 
-clear
+set -Eeuo pipefail
 
-GREEN='\033[1;32m'
-CYAN='\033[1;36m'
-RED='\033[1;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+LOG_FILE="/var/log/reon-socketxp.log"
+
+RED="\033[1;31m"
+GREEN="\033[1;32m"
+YELLOW="\033[1;33m"
+BLUE="\033[1;36m"
+NC="\033[0m"
+
+log() {
+    echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"
+}
 
 banner() {
-clear
-echo -e "${CYAN}"
-cat << "EOF"
+    clear
+    echo -e "${BLUE}"
+    cat << "EOF"
 
 ██████╗ ███████╗ ██████╗ ███╗   ██╗
 ██╔══██╗██╔════╝██╔═══██╗████╗  ██║
@@ -21,70 +31,112 @@ cat << "EOF"
 ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
 
         SocketXP Manager
-         Made by REON DEV
+          Made by REON DEV
 
 EOF
-echo -e "${NC}"
+    echo -e "${NC}"
+}
+
+check_root() {
+    if [[ $EUID -ne 0 ]]; then
+        echo -e "${RED}Please run as root.${NC}"
+        exit 1
+    fi
+}
+
+detect_os() {
+    if [[ -f /etc/debian_version ]]; then
+        PKG="apt"
+    elif [[ -f /etc/redhat-release ]]; then
+        PKG="yum"
+    else
+        echo "Unsupported Linux distribution."
+        exit 1
+    fi
+}
+
+install_dependencies() {
+    log "Installing dependencies"
+    if [[ "$PKG" == "apt" ]]; then
+        apt update
+        apt install -y curl wget unzip
+    else
+        yum install -y curl wget unzip
+    fi
 }
 
 install_socketxp() {
-echo -e "${GREEN}Installing SocketXP...${NC}"
+    echo -e "${GREEN}Installing SocketXP...${NC}"
 
-curl -fsSL https://portal.socketxp.com/download/linux/amd64/socketxp \
--o /usr/local/bin/socketxp
+    # --------------------------------------------------
+    # REPLACE THIS SECTION WITH THE OFFICIAL SOCKETXP
+    # INSTALL COMMAND FROM THEIR DOCUMENTATION.
+    # --------------------------------------------------
+    echo "Insert official SocketXP install commands here."
+    # Example:
+    # curl -fsSL <official-url> | bash
+    # --------------------------------------------------
 
-chmod +x /usr/local/bin/socketxp
-
-echo
-read -p "Enter SocketXP Auth Token: " TOKEN
-socketxp login "$TOKEN"
-
-echo
-echo -e "${GREEN}Installation Complete!${NC}"
-read -n1 -r -p "Press any key to continue..."
+    log "SocketXP installation attempted"
 }
 
-start_tunnel() {
-read -p "Enter Local Port: " PORT
-socketxp tcp --ports "$PORT"
+start_service() {
+    systemctl start socketxp || echo "Service not found."
+}
+
+stop_service() {
+    systemctl stop socketxp || echo "Service not found."
+}
+
+restart_service() {
+    systemctl restart socketxp || echo "Service not found."
+}
+
+status_service() {
+    systemctl status socketxp --no-pager || true
 }
 
 uninstall_socketxp() {
-rm -f /usr/local/bin/socketxp
-rm -f /etc/systemd/system/socketxp.service
-systemctl daemon-reload
-
-echo "SocketXP removed."
-read -n1 -r -p "Press any key..."
+    echo -e "${YELLOW}Uninstall placeholder.${NC}"
+    # Add official uninstall commands here.
 }
 
-while true; do
-banner
+menu() {
+    while true; do
+        banner
+        cat << EOF
+1) Install SocketXP
+2) Start Service
+3) Stop Service
+4) Restart Service
+5) Service Status
+6) Uninstall
+7) Exit
 
-echo "1) Install SocketXP"
-echo "2) Start TCP Tunnel"
-echo "3) Uninstall SocketXP"
-echo "4) Exit"
-echo
-read -p "Select an option: " OPTION
+EOF
+        read -rp "Select an option: " opt
 
-case $OPTION in
-1)
-install_socketxp
-;;
-2)
-start_tunnel
-;;
-3)
-uninstall_socketxp
-;;
-4)
-exit
-;;
-*)
-echo "Invalid option."
-sleep 1
-;;
-esac
+        case "$opt" in
+            1) install_socketxp ;;
+            2) start_service ;;
+            3) stop_service ;;
+            4) restart_service ;;
+            5) status_service ;;
+            6) uninstall_socketxp ;;
+            7) exit 0 ;;
+            *) echo "Invalid option." ;;
+        esac
 
-done
+        echo
+        read -rp "Press Enter to continue..."
+    done
+}
+
+main() {
+    check_root
+    detect_os
+    install_dependencies
+    menu
+}
+
+main
